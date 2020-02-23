@@ -134,7 +134,8 @@ ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffuncti
 CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections -funsigned-char
 
 ifeq ($(DEBUG), 1)
-CFLAGS += -g -gdwarf-2
+CFLAGS += -g -gdwarf-2 -DDEBUG=$(DEBUG)
+ASFLAGS += -DDEBUG=$(DEBUG)
 endif
 
 
@@ -206,5 +207,12 @@ load: $(BUILD_DIR)/$(TARGET).bin
 	stm32flash -w $(BUILD_DIR)/$(TARGET).bin -v -R /dev/ttyUSB0
 	touch load
 
+reload:
+	stm32flash -w $(BUILD_DIR)/$(TARGET).bin -v -R /dev/ttyUSB0
+	cat /dev/ttyUSB0
+
 cat:
 	cat /dev/ttyUSB0
+
+term:
+	minicom -o -b 57600 -D /dev/ttyUSB0

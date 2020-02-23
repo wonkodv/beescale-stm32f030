@@ -168,9 +168,9 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
 
-  printf("Error occurred");
+  printf("Error_Handler");
 
-  while(1);
+  panic();
   /* TODO */
 
   /* USER CODE END Error_Handler_Debug */
@@ -190,7 +190,8 @@ void assert_failed(char *file, uint32_t line)
   /* User can add his own implementation to report the file name and line number,
      tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   printf("%s:%lu: assert failed", file, line);
-  while(1);
+
+  panic();
 
   /* TODO */
   /* USER CODE END 6 */
