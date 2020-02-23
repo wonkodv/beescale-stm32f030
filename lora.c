@@ -93,17 +93,11 @@ static uint8_t spi_byte(uint8_t out){
     return in;
 }
 
-void lora_reset(void) {
-    HAL_GPIO_WritePin(CS_LORA_GPIO_Port, CS_LORA_Pin , 1);
-    HAL_GPIO_WritePin(RES_LORA_GPIO_Port, RES_LORA_Pin, 0);
-    HAL_Delay(5);
-    HAL_GPIO_WritePin(RES_LORA_GPIO_Port, RES_LORA_Pin, 1);
-    HAL_Delay(10);
-}
+/*********************** chip Communication ********************/
 
 void lora_down(void) {
+    HAL_GPIO_WritePin(CS_LORA_GPIO_Port, CS_LORA_Pin , 1);
     HAL_GPIO_WritePin(RES_LORA_GPIO_Port, RES_LORA_Pin, 0);
-    HAL_Delay(1);
 }
 
 void lora_up(void) {
@@ -142,25 +136,146 @@ static uint8_t lora_read_reg(uint8_t reg) {
     return val;
 }
 
+/*********************** Control *******************************/
+
+void lora_init(void) {
+    lora_reset();
+
+    uint8_t version = lora_read_reg(REG_VERSION);
+    if(version !=  0x12) {
+        panic();
+    }
+
+    lora_sleep();
+
+    lora_write_reg(REG_FIFO_RX_BASE_ADDR, 0);
+    lora_write_reg(REG_FIFO_TX_BASE_ADDR, 0);
+    lora_write_reg(REG_LNA, lora_read_reg(REG_LNA) | 0x03); //  TODO: this good? boost 150%LNA Current
+    lora_write_reg(REG_MODEM_CONFIG_3, 0x04); // TODO: good? AgcOnAuto
+
+    lora_idle();
+}
+
+void lora_reset(void) {
+    lora_down();
+    HAL_Delay(1);
+    lora_up();
+    HAL_Delay(10);
+}
+
+/*********************** Communicate ***************************/
+
 /**
- * Configure explicit header mode.
- * Packet size will be included in the frame.
+ * Send a packet.
+ * @param buf Data to be sent
+ * @param size Size of data.
  */
-void lora_explicit_header_mode(void) {
-    implicit_header_mode = 0;
-    lora_write_reg(REG_MODEM_CONFIG_1, lora_read_reg(REG_MODEM_CONFIG_1) & 0xfe);
+void lora_send_packet(void *buf, uint8_t size) {
+    int i;
+
+    uint8_t *pbuf = (uint8_t*)buf;
+
+    /*
+     * Transfer data to radio.
+     */
+    lora_write_reg(REG_OP_MODE, MODE_LORA | MODE_STDBY);
+    lora_write_reg(REG_FIFO_ADDR_PTR, 0);
+
+    for(i=0; i<size; i++) {
+        lora_write_reg(REG_FIFO, *pbuf++);  /* TODO: use only 1 SPI Transmit*/
+    }
+
+    lora_write_reg(REG_PAYLOAD_LENGTH, size);
+
+    /*
+     * Start transmission and wait for conclusion.
+     */
+    lora_write_reg(REG_OP_MODE, MODE_LORA | MODE_TX);
+    while((lora_read_reg(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK) == 0) {
+        HAL_Delay(1);
+    }
+
+    lora_write_reg(REG_IRQ_FLAGS, IRQ_TX_DONE_MASK);
 }
 
 /**
- * Configure implicit header mode.
- * All packets will have a predefined size.
- * @param size Size of the packets.
+ * Read a received packet.
+ * @param buf Buffer for the data.
+ * @param size Available size in buffer (bytes).
+ * @return Number of bytes received,
+ *          LORA_ERR_NO_PACKET,
+ *          LORA_ERR_CRC_ERR,
  */
-void lora_implicit_header_mode(uint8_t size) {
-    implicit_header_mode = 1;
-    lora_write_reg(REG_MODEM_CONFIG_1, lora_read_reg(REG_MODEM_CONFIG_1) | 0x01);
-    lora_write_reg(REG_PAYLOAD_LENGTH, size);
+int16_t lora_receive_packet(void *buf, uint8_t size) {
+    int i, len = 0;
+
+    uint8_t *pbuf = (uint8_t*)buf;
+
+    /*
+     * Check interrupts.
+     */
+    int irq = lora_read_reg(REG_IRQ_FLAGS);
+    lora_write_reg(REG_IRQ_FLAGS, irq);
+
+    if((irq & IRQ_RX_DONE_MASK) == 0) {
+        return LORA_ERR_NO_PACKET;
+    }
+
+    if(irq & IRQ_PAYLOAD_CRC_ERROR_MASK) {
+        return LORA_ERR_CRC_ERR;
+    }
+
+    /*
+     * Find packet size.
+     */
+    lora_write_reg(REG_OP_MODE, MODE_LORA | MODE_STDBY);
+    if (implicit_header_mode) {
+        len = lora_read_reg(REG_PAYLOAD_LENGTH);
+    } else {
+        len = lora_read_reg(REG_RX_NB_BYTES);
+    }
+
+    /*
+     * Transfer data from radio.
+     */
+    lora_write_reg(REG_FIFO_ADDR_PTR, lora_read_reg(REG_FIFO_RX_CURRENT_ADDR));
+    if(len > size) {
+        len = size;
+    }
+    for(i=0; i<len; i++) {
+        *pbuf++ = lora_read_reg(REG_FIFO); /* TODO: use only 1 SPI Transfer */
+    }
+    return len;
 }
+
+/**
+ * Returns non-zero if there is data to read (packet received).
+ */
+uint8_t lora_available(void) {
+    int m = lora_read_reg(REG_IRQ_FLAGS) & IRQ_RX_DONE_MASK;
+    if(m) {
+        return 1;
+    }
+    return 0;
+}
+
+/**
+ * Return last packet's RSSI.
+ */
+uint8_t lora_packet_rssi(void) {
+    uint8_t v = lora_read_reg(REG_PKT_RSSI_VALUE);
+    return v - (frequency < LORA_FREQ_868M ? 164 : 157);
+}
+
+/**
+ * Return last packet's SNR (signal to noise ratio).
+ */
+float lora_packet_snr(void) {
+    int v = lora_read_reg(REG_PKT_SNR_VALUE);
+    return ((int8_t)v) * 0.25;
+}
+
+/*********************** MODES *********************************/
 
 /**
  * Sets the radio transceiver in idle mode.
@@ -184,6 +299,30 @@ void lora_sleep(void) {
  */
 void lora_receive(void) {
     lora_write_reg(REG_OP_MODE, MODE_LORA | MODE_RX_CONTINUOUS);
+}
+
+/*********************** Config ********************************/
+
+/* TODO: Explain configs better */
+
+/**
+ * Configure explicit header mode.
+ * Packet size will be included in the frame.
+ */
+void lora_explicit_header_mode(void) {
+    implicit_header_mode = 0;
+    lora_write_reg(REG_MODEM_CONFIG_1, lora_read_reg(REG_MODEM_CONFIG_1) & 0xfe);
+}
+
+/**
+ * Configure implicit header mode.
+ * All packets will have a predefined size.
+ * @param size Size of the packets.
+ */
+void lora_implicit_header_mode(uint8_t size) {
+    implicit_header_mode = 1;
+    lora_write_reg(REG_MODEM_CONFIG_1, lora_read_reg(REG_MODEM_CONFIG_1) | 0x01);
+    lora_write_reg(REG_PAYLOAD_LENGTH, size);
 }
 
 /**
@@ -233,27 +372,11 @@ void lora_set_spreading_factor(uint8_t sf) {
 }
 
 /**
- * Set bandwidth (bit rate)
- * @param sbw Bandwidth in Hz (up to 500000)
+ * Set bandwidth using LORA_BW_ constants.
+ * Default LORA_BW_41700Hz
  */
-void lora_set_bandwidth(uint32_t sbw) {
-    int bw;
-
-    assert(0); // untested
-
-    switch(sbw) {
-        case 7800: bw = 0; break;
-        case 10400: bw = 1; break;
-        case 15600: bw = 2; break;
-        case 20800: bw = 3; break;
-        case 31250: bw = 4; break;
-        case 41700: bw = 5; break;
-        case 62500: bw = 6; break;
-        case 125000: bw = 7; break;
-        case 250000: bw = 8; break;
-        case 500000: bw = 9; break;
-        default: assert(0); return;
-    }
+void lora_set_bandwidth(uint8_t bw) {
+    assert_comp(bw, <=, LORA_BW_MAX);
     lora_write_reg(REG_MODEM_CONFIG_1, (lora_read_reg(REG_MODEM_CONFIG_1) & 0x0f) | (bw << 4));
 }
 
@@ -273,13 +396,17 @@ void lora_set_coding_rate(uint8_t denominator) {
  * Set the size of preamble.
  * @param length Preamble length in symbols.
  */
-void lora_set_preamble_length(uint16_t length) {
+void lora_set_preamble_length(uint32_t length) {
+    assert_comp(length,  >= , 4);
+    assert_comp(length,  < , 0x100004);
+    length = length - 4;
     lora_write_reg(REG_PREAMBLE_MSB, (uint8_t)(length >> 8));
     lora_write_reg(REG_PREAMBLE_LSB, (uint8_t)(length >> 0));
 }
 
 /**
  * Change radio sync word.
+ * 34 Reserved for LoraWan
  * @param sw New sync word to use.
  */
 void lora_set_sync_word(uint8_t sw) {
@@ -299,145 +426,6 @@ void lora_enable_crc(void) {
 void lora_disable_crc(void) {
     lora_write_reg(REG_MODEM_CONFIG_2, lora_read_reg(REG_MODEM_CONFIG_2) & 0xfb);
 }
-
-/**
- * Perform hardware initialization.
- */
-void lora_init(void) {
-    /*
-     * Perform hardware reset.
-     */
-    lora_reset();
-
-    /*
-     * Check version.
-     */
-    uint8_t version = lora_read_reg(REG_VERSION);
-    assert_comp(version,  == , 0x12);
-
-    /*
-     * Default configuration.
-     */
-    lora_sleep();
-
-    lora_write_reg(REG_FIFO_RX_BASE_ADDR, 0);
-    lora_write_reg(REG_FIFO_TX_BASE_ADDR, 0);
-    lora_write_reg(REG_LNA, lora_read_reg(REG_LNA) | 0x03); //  TODO: this good? boost 150%LNA Current
-    lora_write_reg(REG_MODEM_CONFIG_3, 0x04); // TODO: good? AgcOnAuto
-
-    lora_set_tx_power(17);
-
-    lora_idle();
-}
-
-/**
- * Send a packet.
- * @param buf Data to be sent
- * @param size Size of data.
- */
-void lora_send_packet(uint8_t *buf, uint8_t size) {
-    int i;
-
-    /*
-     * Transfer data to radio.
-     */
-    lora_write_reg(REG_OP_MODE, MODE_LORA | MODE_STDBY);
-    lora_write_reg(REG_FIFO_ADDR_PTR, 0);
-
-    for(i=0; i<size; i++) {
-        lora_write_reg(REG_FIFO, *buf++);  /* TODO: use only 1 SPI Transmit*/
-    }
-
-    lora_write_reg(REG_PAYLOAD_LENGTH, size);
-
-    /*
-     * Start transmission and wait for conclusion.
-     */
-    lora_write_reg(REG_OP_MODE, MODE_LORA | MODE_TX);
-    while((lora_read_reg(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK) == 0) {
-        HAL_Delay(1);
-    }
-
-    lora_write_reg(REG_IRQ_FLAGS, IRQ_TX_DONE_MASK);
-}
-
-/**
- * Read a received packet.
- * @param buf Buffer for the data.
- * @param size Available size in buffer (bytes).
- * @return Number of bytes received,
- *          LORA_ERR_NO_PACKET,
- *          LORA_ERR_CRC_ERR,
- */
-int16_t lora_receive_packet(uint8_t *buf, uint8_t size) {
-    int i, len = 0;
-
-    /*
-     * Check interrupts.
-     */
-    int irq = lora_read_reg(REG_IRQ_FLAGS);
-    lora_write_reg(REG_IRQ_FLAGS, irq);
-
-    if((irq & IRQ_RX_DONE_MASK) == 0) {
-        return LORA_ERR_NO_PACKET;
-    }
-
-    if(irq & IRQ_PAYLOAD_CRC_ERROR_MASK) {
-        return LORA_ERR_CRC_ERR;
-    }
-
-    /*
-     * Find packet size.
-     */
-    lora_write_reg(REG_OP_MODE, MODE_LORA | MODE_STDBY);
-    if (implicit_header_mode) {
-        len = lora_read_reg(REG_PAYLOAD_LENGTH);
-    } else {
-        len = lora_read_reg(REG_RX_NB_BYTES);
-    }
-
-    /*
-     * Transfer data from radio.
-     */
-    lora_write_reg(REG_FIFO_ADDR_PTR, lora_read_reg(REG_FIFO_RX_CURRENT_ADDR));
-    if(len > size) {
-        len = size;
-    }
-    for(i=0; i<len; i++) {
-        *buf++ = lora_read_reg(REG_FIFO); /* TODO: use only 1 SPI Transfer */
-    }
-    return len;
-}
-
-/**
- * Returns non-zero if there is data to read (packet received).
- */
-uint8_t lora_available(void) {
-    int m = lora_read_reg(REG_IRQ_FLAGS) & IRQ_RX_DONE_MASK;
-    if(m) {
-        return 1;
-    }
-    return 0;
-}
-
-/**
- * Return last packet's RSSI.
- */
-uint8_t lora_packet_rssi(void) {
-    uint8_t v = lora_read_reg(REG_PKT_RSSI_VALUE);
-    return v - (frequency < LORA_FREQ_868M ? 164 : 157);
-}
-
-/**
- * Return last packet's SNR (signal to noise ratio).
- */
-float lora_packet_snr(void) {
-    int v = lora_read_reg(REG_PKT_SNR_VALUE);
-    return ((int8_t)v) * 0.25;
-}
-
-
-
 
 
 #if DEBUG==1
