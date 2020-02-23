@@ -56,8 +56,11 @@ void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(unused2_GPIO_Port, unused2_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, CS_HX711_Pin|CS_LORA_Pin|RES_LORA_Pin|W1_DATA_Pin 
-                          |LED_Pin|SPI1_CLK_Pin|SPI1_MOSI_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, CS_HX711_Pin|RES_LORA_Pin|W1_DATA_Pin|LED_Pin 
+                          |SPI1_CLK_Pin|SPI1_MOSI_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(CS_LORA_GPIO_Port, CS_LORA_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pins : PFPin PFPin */
   GPIO_InitStruct.Pin = unused1_Pin|unused2_Pin;
