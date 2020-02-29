@@ -62,24 +62,24 @@ void Error_Handler(void);
 #define unused1_GPIO_Port GPIOF
 #define unused2_Pin GPIO_PIN_1
 #define unused2_GPIO_Port GPIOF
-#define CS_HX711_Pin GPIO_PIN_0
-#define CS_HX711_GPIO_Port GPIOA
+#define HX711_CLK_PD_Pin GPIO_PIN_0
+#define HX711_CLK_PD_GPIO_Port GPIOA
 #define CS_LORA_Pin GPIO_PIN_1
 #define CS_LORA_GPIO_Port GPIOA
 #define RES_LORA_Pin GPIO_PIN_2
 #define RES_LORA_GPIO_Port GPIOA
-#define W1_DATA_Pin GPIO_PIN_3
-#define W1_DATA_GPIO_Port GPIOA
-#define LED_Pin GPIO_PIN_4
-#define LED_GPIO_Port GPIOA
+#define W1_Pin GPIO_PIN_3
+#define W1_GPIO_Port GPIOA
+#define VBAT_Pin GPIO_PIN_4
+#define VBAT_GPIO_Port GPIOA
 #define SPI1_CLK_Pin GPIO_PIN_5
 #define SPI1_CLK_GPIO_Port GPIOA
 #define SPI1_MISO_Pin GPIO_PIN_6
 #define SPI1_MISO_GPIO_Port GPIOA
 #define SPI1_MOSI_Pin GPIO_PIN_7
 #define SPI1_MOSI_GPIO_Port GPIOA
-#define VBAT_Pin GPIO_PIN_1
-#define VBAT_GPIO_Port GPIOB
+#define LED_Pin GPIO_PIN_14
+#define LED_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

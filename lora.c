@@ -1,6 +1,7 @@
 #include "gpio.h"
-#include "app.h"
 #include "lora.h"
+
+#include "assert.h"
 
 /* a lot Copied from here:
  * https://github.com/Inteform/PyLora/blob/master/src/lora.c
@@ -64,7 +65,6 @@
 
 static uint8_t implicit_header_mode;
 static uint32_t frequency;
-
 
 static void spi_start(void){
     HAL_GPIO_WritePin(CS_LORA_GPIO_Port, CS_LORA_Pin , 0);

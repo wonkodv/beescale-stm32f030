@@ -30,14 +30,7 @@
 
 /* USER CODE END 1 */
 
-/** Configure pins as 
-        * Analog 
-        * Input 
-        * Output
-        * EVENT_OUT
-        * EXTI
-        * Free pins are configured automatically as Analog (this feature is enabled through 
-        * the Code Generation settings)
+/** Configure pins
 */
 void MX_GPIO_Init(void)
 {
@@ -56,11 +49,11 @@ void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(unused2_GPIO_Port, unused2_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, CS_HX711_Pin|RES_LORA_Pin|W1_DATA_Pin|LED_Pin 
-                          |SPI1_CLK_Pin|SPI1_MOSI_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, HX711_CLK_PD_Pin|CS_LORA_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(CS_LORA_GPIO_Port, CS_LORA_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, RES_LORA_Pin|W1_Pin|SPI1_CLK_Pin|SPI1_MOSI_Pin 
+                          |LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PFPin PFPin */
   GPIO_InitStruct.Pin = unused1_Pin|unused2_Pin;
@@ -71,8 +64,8 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PAPin PAPin PAPin PAPin 
                            PAPin PAPin PAPin */
-  GPIO_InitStruct.Pin = CS_HX711_Pin|CS_LORA_Pin|RES_LORA_Pin|W1_DATA_Pin 
-                          |LED_Pin|SPI1_CLK_Pin|SPI1_MOSI_Pin;
+  GPIO_InitStruct.Pin = HX711_CLK_PD_Pin|CS_LORA_Pin|RES_LORA_Pin|W1_Pin 
+                          |SPI1_CLK_Pin|SPI1_MOSI_Pin|LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -83,6 +76,18 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(SPI1_MISO_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA13 */
+  GPIO_InitStruct.Pin = GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
