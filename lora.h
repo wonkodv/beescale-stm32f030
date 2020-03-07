@@ -29,6 +29,7 @@ void lora_selftest();
 
 #define LORA_FREQ_868M 868*1000*1000
 #define LORA_FREQ_915M 915*1000*1000
+#define LORA_FREQ_434M 434*1000*1000
 
 
 #define LORA_BW_7800Hz   0
@@ -45,3 +46,6 @@ void lora_selftest();
 
 #define LORA_ERR_NO_PACKET  -1
 #define LORA_ERR_CRC_ERR    -2
+
+#define LORA_HEADER_EXPLICIT 0
+#define LORA_HEADER_IMPLICIT 1

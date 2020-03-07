@@ -43,10 +43,10 @@ void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, W1_Pin|LORA_CS_Pin|LORA_CLK_Pin|HX711_CLK_PD_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, LORA_CS_Pin|HX711_CLK_PD_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LORA_RST_Pin|MOSI_Pin|LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LORA_RST_Pin|LORA_CLK_Pin|LED_Pin|MOSI_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PF0 PF1 */
   GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
@@ -55,9 +55,9 @@ void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PAPin PAPin PAPin PAPin 
-                           PAPin PAPin PAPin */
-  GPIO_InitStruct.Pin = W1_Pin|LORA_CS_Pin|LORA_RST_Pin|LORA_CLK_Pin 
-                          |HX711_CLK_PD_Pin|MOSI_Pin|LED_Pin;
+                           PAPin PAPin */
+  GPIO_InitStruct.Pin = LORA_CS_Pin|LORA_RST_Pin|LORA_CLK_Pin|LED_Pin 
+                          |HX711_CLK_PD_Pin|MOSI_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -75,8 +75,8 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA13 */
-  GPIO_InitStruct.Pin = GPIO_PIN_13;
+  /*Configure GPIO pins : PA13 PA14 */
+  GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_14;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);

@@ -229,8 +229,8 @@ int16_t lora_receive_packet(void *buf, uint8_t size) {
      * Find packet size.
      */
     lora_write_reg(REG_OP_MODE, MODE_LORA | MODE_STDBY);
-    if (implicit_header_mode) {
-        len = lora_read_reg(REG_PAYLOAD_LENGTH);
+    if (implicit_header_mode == LORA_HEADER_IMPLICIT) {
+        len = size;
     } else {
         len = lora_read_reg(REG_RX_NB_BYTES);
     }
@@ -303,31 +303,25 @@ void lora_receive(void) {
 
 /*********************** Config ********************************/
 
-/* TODO: Explain configs better */
-
 /**
- * Configure explicit header mode.
- * Packet size will be included in the frame.
+ * Configure Header Mode
+ *
+ * @param mode can be one of:
+ * *    LORA_HEADER_EXPLICIT: Size is encoded in Header when sending/receiving (default)
+ * *    LORA_HEADER_IMPLICIT: No Header is sent
  */
-void lora_explicit_header_mode(void) {
-    implicit_header_mode = 0;
-    lora_write_reg(REG_MODEM_CONFIG_1, lora_read_reg(REG_MODEM_CONFIG_1) & 0xfe);
-}
-
-/**
- * Configure implicit header mode.
- * All packets will have a predefined size.
- * @param size Size of the packets.
- */
-void lora_implicit_header_mode(uint8_t size) {
-    implicit_header_mode = 1;
-    lora_write_reg(REG_MODEM_CONFIG_1, lora_read_reg(REG_MODEM_CONFIG_1) | 0x01);
-    lora_write_reg(REG_PAYLOAD_LENGTH, size);
+void lora_set_header_mode(uint8_t mode) {
+    implicit_header_mode = mode;
+    if(mode == LORA_HEADER_IMPLICIT) {
+        lora_write_reg(REG_MODEM_CONFIG_1, lora_read_reg(REG_MODEM_CONFIG_1) | 0x01);
+    } else {
+        lora_write_reg(REG_MODEM_CONFIG_1, lora_read_reg(REG_MODEM_CONFIG_1) & 0xfe);
+    }
 }
 
 /**
  * Configure power level for transmission
- * @param level 2-17, from least to most power
+ * @param ouput Power in dB, Range: 2..17, default: 17
  */
 void lora_set_tx_power(uint8_t level) {
     // RF9x module uses PA_BOOST pin
@@ -339,7 +333,7 @@ void lora_set_tx_power(uint8_t level) {
 
 /**
  * Set carrier frequency.
- * @param freq Frequency in Hz
+ * @param freq Frequency in Hz, Default: LORA_FREQ_434M
  */
 void lora_set_frequency(uint32_t freq) {
     frequency = freq;
@@ -354,7 +348,7 @@ void lora_set_frequency(uint32_t freq) {
 
 /**
  * Set spreading factor.
- * @param sf 6-12, Spreading factor to use.
+ * @param sf: Spreading factor to use, Range 6..12, Default: 7
  */
 void lora_set_spreading_factor(uint8_t sf) {
     assert_comp(sf,  >= , 6);
@@ -373,7 +367,7 @@ void lora_set_spreading_factor(uint8_t sf) {
 
 /**
  * Set bandwidth using LORA_BW_ constants.
- * Default LORA_BW_41700Hz
+ * Default LORA_BW_125kHz
  */
 void lora_set_bandwidth(uint8_t bw) {
     assert_comp(bw, <=, LORA_BW_MAX);
@@ -381,8 +375,8 @@ void lora_set_bandwidth(uint8_t bw) {
 }
 
 /**
- * Set coding rate
- * @param denominator 5-8, Denominator for the coding rate 4/x
+ * Set Coding Rate (Error Correction)
+ * @param denominator:  X to set Coding rate 4/X. valid Range: 5..8 Default: 5
  */
 void lora_set_coding_rate(uint8_t denominator) {
     assert_comp(denominator,  >= , 5);
@@ -394,7 +388,7 @@ void lora_set_coding_rate(uint8_t denominator) {
 
 /**
  * Set the size of preamble.
- * @param length Preamble length in symbols.
+ * @param length Preamble length in symbols. Valid Range: 4..0x100004, Default: 12
  */
 void lora_set_preamble_length(uint32_t length) {
     assert_comp(length,  >= , 4);
@@ -406,25 +400,24 @@ void lora_set_preamble_length(uint32_t length) {
 
 /**
  * Change radio sync word.
- * 34 Reserved for LoraWan
- * @param sw New sync word to use.
+ * 0x34 Reserved for LoraWan
+ * @param sw New sync word to use, Default: 0x12
  */
 void lora_set_sync_word(uint8_t sw) {
     lora_write_reg(REG_SYNC_WORD, sw);
 }
 
 /**
- * Enable appending/verifying packet CRC.
+ * Set appending/verifying packet CRC.
+ *
+ * @param do_crc:   whether to append / verify CRC
  */
-void lora_enable_crc(void) {
-    lora_write_reg(REG_MODEM_CONFIG_2, lora_read_reg(REG_MODEM_CONFIG_2) | 0x04);
-}
-
-/**
- * Disable appending/verifying packet CRC.
- */
-void lora_disable_crc(void) {
-    lora_write_reg(REG_MODEM_CONFIG_2, lora_read_reg(REG_MODEM_CONFIG_2) & 0xfb);
+void lora_set_crc(uint8_t do_crc) {
+    if(do_crc) {
+        lora_write_reg(REG_MODEM_CONFIG_2, lora_read_reg(REG_MODEM_CONFIG_2) | 0x04);
+    } else {
+        lora_write_reg(REG_MODEM_CONFIG_2, lora_read_reg(REG_MODEM_CONFIG_2) & 0xfb);
+    }
 }
 
 
@@ -435,7 +428,6 @@ void lora_disable_crc(void) {
     assert_comp(val,  == , lora_read_reg(reg));      \
 }while(0)
 
-
 /**
  * Test implementation and connection to SX127x by checking:
  * *    Version
@@ -444,7 +436,6 @@ void lora_disable_crc(void) {
  * *    Fifo Operation
  */
 void lora_selftest(){
-    printf("Lora Selftest ...");
     lora_reset();
 
     /* Hardcoded Semtech Silicon Version */
@@ -507,8 +498,6 @@ void lora_selftest(){
         assert_comp(255, ==, rdata[4]);
     }
 
-
-
     lora_reset();
 
     assert_comp(MODE_LOW_FREQ| MODE_STDBY, ==, lora_read_reg(REG_OP_MODE));
@@ -517,12 +506,9 @@ void lora_selftest(){
     assert_comp(0, == , lora_read_reg(REG_FIFO_RX_BASE_ADDR));
     assert_comp(0x80,   == , lora_read_reg(REG_FIFO_TX_BASE_ADDR));
     assert_comp(0,   == , lora_read_reg(REG_FIFO_ADDR_PTR));
-
-    printf("\b\b\bsuccessfull\n");
 }
 #else
 void lora_selftest(){
-    printf("Lora Selftest not implemented");
-    assert(0);
+    panic();
 }
 #endif
