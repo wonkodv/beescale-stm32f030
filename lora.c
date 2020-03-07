@@ -67,11 +67,11 @@ static uint8_t implicit_header_mode;
 static uint32_t frequency;
 
 static void spi_start(void){
-    HAL_GPIO_WritePin(CS_LORA_GPIO_Port, CS_LORA_Pin , 0);
+    HAL_GPIO_WritePin(LORA_CS_GPIO_Port, LORA_CS_Pin , 0);
 }
 
 static void spi_stop(void){
-    HAL_GPIO_WritePin(CS_LORA_GPIO_Port, CS_LORA_Pin , 1);
+    HAL_GPIO_WritePin(LORA_CS_GPIO_Port, LORA_CS_Pin , 1);
 }
 
 static uint8_t spi_byte(uint8_t out){
@@ -80,15 +80,15 @@ static uint8_t spi_byte(uint8_t out){
 
     for(int j=0; j<8; j++) {
 
-        i = HAL_GPIO_ReadPin(SPI1_MISO_GPIO_Port, SPI1_MISO_Pin);
+        i = HAL_GPIO_ReadPin(MISO_GPIO_Port, MISO_Pin);
         in <<= 1;
         in |= i;
         o = out & 0x80 ? 1 : 0;
         out <<= 1;
-        HAL_GPIO_WritePin(SPI1_MOSI_GPIO_Port, SPI1_MOSI_Pin , o);
+        HAL_GPIO_WritePin(MOSI_GPIO_Port, MOSI_Pin , o);
 
-        HAL_GPIO_WritePin(SPI1_CLK_GPIO_Port, SPI1_CLK_Pin , 1);
-        HAL_GPIO_WritePin(SPI1_CLK_GPIO_Port, SPI1_CLK_Pin , 0);
+        HAL_GPIO_WritePin(LORA_CLK_GPIO_Port, LORA_CLK_Pin , 1);
+        HAL_GPIO_WritePin(LORA_CLK_GPIO_Port, LORA_CLK_Pin , 0);
     }
     return in;
 }
@@ -96,12 +96,12 @@ static uint8_t spi_byte(uint8_t out){
 /*********************** chip Communication ********************/
 
 void lora_down(void) {
-    HAL_GPIO_WritePin(CS_LORA_GPIO_Port, CS_LORA_Pin , 1);
-    HAL_GPIO_WritePin(RES_LORA_GPIO_Port, RES_LORA_Pin, 0);
+    HAL_GPIO_WritePin(LORA_CS_GPIO_Port, LORA_CS_Pin , 1);
+    HAL_GPIO_WritePin(LORA_RST_GPIO_Port, LORA_RST_Pin, 0);
 }
 
 void lora_up(void) {
-    HAL_GPIO_WritePin(RES_LORA_GPIO_Port, RES_LORA_Pin, 1);
+    HAL_GPIO_WritePin(LORA_RST_GPIO_Port, LORA_RST_Pin, 1);
 }
 
 static void spi_tx(uint8_t reg, uint8_t *buf, uint8_t count) {
